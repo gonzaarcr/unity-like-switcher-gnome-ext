@@ -1,9 +1,0 @@
-{
-  "name": "Unity-like App Switcher",
-  "description": "Unity-like App Switcher.",
-  "original-authors": "gonza",
-  "uuid": "unity-like-appswitcher@gonza.com",
-  "shell-version": [
-    "3.36"
-  ]
-}
