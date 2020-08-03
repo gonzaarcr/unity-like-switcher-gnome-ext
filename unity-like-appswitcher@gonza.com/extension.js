@@ -1,9 +1,12 @@
-/* -*- mode: js; js-basic-offset: 4; indent-tabs-mode: nil -*- */
 
-const { Meta, Shell } = imports.gi;
+const { Atk, Clutter, Meta, Shell, St } = imports.gi;
 
 const AltTab = imports.ui.altTab;
 const SwitcherPopup = imports.ui.switcherPopup;
+
+const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
+const Utils = Me.imports.utils;
 
 
 let injections = {};
@@ -13,7 +16,6 @@ function _finish(timestamp) {
 	this._currentWindow = this._currentWindow < 0 ? 0 : this._currentWindow;
 	return injections._finish.call(this, timestamp);
 }
-
 
 // https://gitlab.gnome.org/GNOME/gnome-shell/commit/092e1a691d57a3be205100f7d3910534d3c59f84
 function _initialSelection(backward, binding) {
@@ -37,10 +39,178 @@ function _initialSelection(backward, binding) {
 	}
 }
 
+// from AltTAb.AppSwitcher
+function highlight(n, justOutline) {
+	if (this.icons[this._curApp]) {
+		if (this.icons[this._curApp].cachedWindows.length == 1)
+			this._arrows[this._curApp].hide();
+		else
+			this._arrows[this._curApp].remove_style_pseudo_class('highlighted');
+	}
+
+	// mein
+	let previous = this._items[this._highlighted];
+	if (previous) {
+		let st = previous.get_style();
+		previous.set_style(st.substr(0, st.indexOf(';')+1));
+	}
+
+	let item = this._items[n];
+	if (item) {
+		item.set_style(item.get_style() + 'box-shadow: inset 0 0 10px '+ item.colorPalette.lighter + '; border: 2px solid '+ item.colorPalette.lighter + ';');
+	}
+	// end mein
+
+	// super.highlight(n, justOutline);
+	highlight2.call(this, n, justOutline);
+	this._curApp = n;
+
+	if (this._curApp != -1) {
+		if (justOutline && this.icons[this._curApp].cachedWindows.length == 1)
+			this._arrows[this._curApp].show();
+		else
+			this._arrows[this._curApp].add_style_pseudo_class('highlighted');
+	}
+}
+
+function _addIcon(appIcon) {
+	this.icons.push(appIcon);
+	let item = this.addItem(appIcon, appIcon.label);
+
+	item.colorPalette = new Utils.DominantColorExtractor(appIcon.app)._getColorPalette();
+	let hex = item.colorPalette.original;
+	let rgb = Utils.ColorUtils._hexToRgb(hex);
+	item.set_style('background: rgba('+ rgb.r + ',' + rgb.g + ',' + rgb.b + ', 0.3);');
+	// item.set_style('background: '+ item.colorPalette.darker);
+	
+	appIcon._stateChangedId = appIcon.app.connect('notify::state', app => {
+		if (app.state != Shell.AppState.RUNNING)
+			this._removeIcon(app);
+	});
+
+	let arrow = new St.DrawingArea({ style_class: 'switcher-arrow' });
+	arrow.connect('repaint', () => SwitcherPopup.drawArrow(arrow, St.Side.BOTTOM));
+	this.add_actor(arrow);
+	this._arrows.push(arrow);
+
+	if (appIcon.cachedWindows.length == 1)
+		arrow.hide();
+	else {
+		item.add_accessible_state(Atk.StateType.EXPANDABLE);
+		// FIXME workaround to bug
+	    appIcon.label.set_style('text-decoration: underline;');
+	}
+}
+
+
+// from SwitcherPopup.SwitcherList
+function highlight2(index, justOutline) {
+	if (this._items[this._highlighted]) {
+		this._items[this._highlighted].remove_style_pseudo_class('outlined');
+		this._items[this._highlighted].remove_style_pseudo_class('selected');
+	}
+
+	if (this._items[index]) {
+		if (justOutline)
+			this._items[index].add_style_pseudo_class('outlined');
+		else
+			this._items[index].add_style_pseudo_class('selected');
+	}
+
+	this._highlighted = index;
+
+	let adjustment = this._scrollView.hscroll.adjustment;
+	let [value] = adjustment.get_values();
+	let [absItemX] = this._items[index].get_transformed_position();
+	let [result_, posX, posY_] = this.transform_stage_point(absItemX, 0);
+	let [containerWidth] = this.get_transformed_size();
+	this._scroll(index);
+}
+
+function _scroll(index) {
+	let adjustment = this._scrollView.hscroll.adjustment;
+	let [value, lower_, upper, stepIncrement_, pageIncrement_, pageSize] = adjustment.get_values();
+
+	let n = this._items.length;
+	let fakeSize = 2;
+
+	this._scrollableRight = index !== n - 1;
+	this._scrollableLeft = index !== 0;
+	if (upper === pageSize)
+		return;
+
+	let item = this._items[index];
+	let sizeItem = (item.allocation.x2 - item.allocation.x1);
+	value = (upper - pageSize + sizeItem) * (index / n);
+	let maxScrollingAmount = (upper - pageSize);
+	let percentaje = (index-fakeSize) / (n - 1 - 2*fakeSize);
+	value = percentaje * maxScrollingAmount;
+
+	// special cases
+	if (index < fakeSize || percentaje <= 0) {
+		this._scrollableLeft = false;
+		value = 0;
+	} else if (index >= n - fakeSize || percentaje >= 1) {
+		this._scrollableRight = false;
+		value = maxScrollingAmount;
+	}
+
+	adjustment.ease(value, {
+		progress_mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+		duration: 250, // POPUP_SCROLL_TIME,
+		onComplete: () => {
+			this.queue_relayout();
+		},
+	});
+}
+
+function addColours() {
+	injections.WINDOW_PREVIEW_SIZE = AltTab.WINDOW_PREVIEW_SIZE;
+	AltTab.WINDOW_PREVIEW_SIZE = 256;
+
+	let newSize = AltTab.baseIconSizes[0] + AltTab.baseIconSizes[AltTab.baseIconSizes.length - 1];
+	injections.baseIconSizes = AltTab.baseIconSizes.slice();
+	AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, newSize);
+
+	injections.highlight = AltTab.AppSwitcher.prototype.highlight;
+	AltTab.AppSwitcher.prototype.highlight = highlight;
+
+	injections._addIcon = AltTab.AppSwitcher.prototype._addIcon;
+	AltTab.AppSwitcher.prototype._addIcon = _addIcon;
+
+
+	injections.POPUP_SCROLL_TIME = SwitcherPopup.POPUP_SCROLL_TIME;
+	SwitcherPopup.POPUP_SCROLL_TIME = 250;
+
+	injections.highlight2 = SwitcherPopup.SwitcherList.prototype.highlight;
+	SwitcherPopup.SwitcherList.prototype.highlight = highlight2;
+
+	injections._scroll = SwitcherPopup.SwitcherList.prototype._scroll;
+	SwitcherPopup.SwitcherList.prototype._scroll = _scroll;
+}
+
+function removeColours() {
+	AltTab.WINDOW_PREVIEW_SIZE = injections.WINDOW_PREVIEW_SIZE;
+
+	AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, ...injections.baseIconSizes);
+
+	AltTab.AppSwitcher.prototype.highlight = injections.highlight;
+
+	AltTab.AppSwitcher.prototype._addIcon = injections._addIcon;
+
+
+	SwitcherPopup.POPUP_SCROLL_TIME = injections.POPUP_SCROLL_TIME;
+	injections.POPUP_SCROLL_TIME = undefined;
+
+	SwitcherPopup.SwitcherList.prototype.highlight = injections.highlight2;
+	injections.highlight2 = undefined;
+
+	SwitcherPopup.SwitcherList.prototype._scroll = injections._scroll; // undefined
+	injections._scroll = undefined;
+}
 
 function init(metadata) {
 }
-
 
 function enable() {
 	injections._finish = AltTab.AppSwitcherPopup.prototype._finish;
@@ -48,12 +218,12 @@ function enable() {
 
 	injections._initialSelection = AltTab.AppSwitcherPopup.prototype._initialSelection;
 	AltTab.AppSwitcherPopup.prototype._initialSelection = _initialSelection;
+
+	addColours();
 }
 
-
 function disable() {
-	let prop;
-	for(prop in injections) {
-		AltTab.AppSwitcherPopup.prototype[prop] = injections[prop];
-	}
+	removeColours();
+	AltTab.AppSwitcherPopup.prototype._finish = injections._finish;
+	AltTab.AppSwitcherPopup.prototype._initialSelection = injections._initialSelection;
 }
