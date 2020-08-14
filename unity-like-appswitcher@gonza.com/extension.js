@@ -78,6 +78,13 @@ function _addIcon(appIcon) {
 	let item = this.addItem(appIcon, appIcon.label);
 
 	item.colorPalette = new Utils.DominantColorExtractor(appIcon.app)._getColorPalette();
+	if (item.colorPalette == null) {
+		item.colorPalette = {
+			original: '#888888',
+			lighter: '#ffffff',
+			darker: '#000000'
+		}
+	}
 	let hex = item.colorPalette.original;
 	let rgb = Utils.ColorUtils._hexToRgb(hex);
 	item.set_style('background: rgba('+ rgb.r + ',' + rgb.g + ',' + rgb.b + ', 0.3);');
