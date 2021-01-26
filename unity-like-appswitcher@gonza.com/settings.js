@@ -4,8 +4,8 @@ const GioSSS = Gio.SettingsSchemaSource;
 
 const Me = imports.misc.extensionUtils.getCurrentExtension();
 
-var Settings = GObject.registerClass(
-class Settings extends Gio.Settings {
+var UnityAppSwitcherSettings = GObject.registerClass(
+class UnityAppSwitcherSettings extends Gio.Settings {
 	_init(schema) {
 		let schemaDir    = Me.dir.get_child('schemas');
 		let schemaSource = null;

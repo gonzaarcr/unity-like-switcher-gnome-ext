@@ -3,9 +3,9 @@ const Gio = imports.gi.Gio;
 const Gtk = imports.gi.Gtk;
 
 const Me = imports.misc.extensionUtils.getCurrentExtension();
-const Settings = Me.imports.settings.Settings;
+const Settings = Me.imports.settings.UnityAppSwitcherSettings;
 
-var PrefsWidget = GObject.registerClass(
+const PrefsWidget = GObject.registerClass(
 class PrefsWidget extends Gtk.Box {	
 
 	_init(settings, params) {

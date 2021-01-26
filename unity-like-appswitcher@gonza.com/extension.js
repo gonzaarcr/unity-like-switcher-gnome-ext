@@ -7,7 +7,7 @@ const SwitcherPopup = imports.ui.switcherPopup;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 
-const Settings = Me.imports.settings.Settings;
+const Settings = Me.imports.settings.UnityAppSwitcherSettings;
 const Utils = Me.imports.utils;
 
 
