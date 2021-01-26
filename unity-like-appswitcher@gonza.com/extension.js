@@ -6,10 +6,13 @@ const SwitcherPopup = imports.ui.switcherPopup;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
+
+const Settings = Me.imports.settings.Settings;
 const Utils = Me.imports.utils;
 
 
 let injections = {};
+let extension = null;
 
 // https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/master/js/ui/altTab.js#L272
 function _finish(timestamp) {
@@ -216,21 +219,74 @@ function removeColours() {
 	injections._scroll = undefined;
 }
 
-function init(metadata) {
-}
-
-function enable() {
+function setInitialSelection(argument) {
 	injections._finish = AltTab.AppSwitcherPopup.prototype._finish;
 	AltTab.AppSwitcherPopup.prototype._finish = _finish;
 
 	injections._initialSelection = AltTab.AppSwitcherPopup.prototype._initialSelection;
 	AltTab.AppSwitcherPopup.prototype._initialSelection = _initialSelection;
+}
+
+function resetInitialSelection(argument) {
+	if (injections._finish) {
+		AltTab.AppSwitcherPopup.prototype._finish = injections._finish;
+		injections._finish = undefined;
+	}
+
+	if (injections._initialSelection) {
+		AltTab.AppSwitcherPopup.prototype._initialSelection = injections._initialSelection;
+		injections._initialSelection = undefined;
+	}
+}
+
+class Extension {
+	constructor(settings) {
+		this._settings = settings;
+
+		this._connectSettings();
+
+		this._firstChangeWindowChanged();
+	}
+
+	_connectSettings() {
+		this._settingsHandlerFirstSwitch = this._settings.connect(
+			'changed::first-change-window',
+			this._firstChangeWindowChanged.bind(this)
+		);
+	}
+
+	_firstChangeWindowChanged() {
+		this._firstChangeWindow = this._settings.get_boolean('first-change-window');
+		if (this._firstChangeWindow) {
+			setInitialSelection();
+		} else {
+			resetInitialSelection();
+		}
+	}
+
+	destroy() {
+		this._disconnectSettings();
+		resetInitialSelection();
+	}
+
+	_disconnectSettings() {
+		this._settings.disconnect(this._settingsHandlerFirstSwitch);
+	}
+}
+
+function init(metadata) {
+}
+
+function enable() {
+	let settings = new Settings(Me.metadata['settings-schema']);
+	extension = new Extension(settings);
 
 	addColours();
 }
 
 function disable() {
 	removeColours();
-	AltTab.AppSwitcherPopup.prototype._finish = injections._finish;
-	AltTab.AppSwitcherPopup.prototype._initialSelection = injections._initialSelection;
+
+	extension.destroy();
+	extension = null;
 }

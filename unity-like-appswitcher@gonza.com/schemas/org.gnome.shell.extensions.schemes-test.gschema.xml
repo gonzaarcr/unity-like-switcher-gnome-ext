@@ -1,0 +1,8 @@
+<schemalist gettext-domain="gnome-shell-extensions">
+	<schema id="org.gnome.shell.extensions.unity-window-switcher" path="/org/gnome/shell/extensions/unity-window-switcher/">
+		<key type="b" name="first-change-window">
+			<default>true</default>
+			<summary>Whether the first tab changes windows or apps</summary>
+		</key>
+	</schema>
+</schemalist>
