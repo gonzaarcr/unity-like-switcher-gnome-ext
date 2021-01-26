@@ -4,6 +4,7 @@
 	"original-authors": "gonza",
 	"uuid": "unity-like-appswitcher@gonza.com",
 	"url": "https://github.com/gonzaarcr/unity-like-switcher-gnome-ext",
+  	"settings-schema": "org.gnome.shell.extensions.unity-window-switcher",
 	"shell-version": [
 		"3.36"
 	]
