@@ -7,7 +7,7 @@
   	"settings-schema": "org.gnome.shell.extensions.unity-window-switcher",
 	"shell-version": [
 		"3.36",
-		"3.38"
+		"3.38",
 		"40"
 	]
 }
