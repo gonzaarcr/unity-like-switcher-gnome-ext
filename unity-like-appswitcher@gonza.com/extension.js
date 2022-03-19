@@ -174,15 +174,22 @@ function _scroll(index) {
 	});
 }
 
+function _setIconSize() {
+	this._iconSize = 96;
+
+	for (let i = 0; i < this.icons.length; i++) {
+		if (this.icons[i].icon != null)
+			break;
+		this.icons[i].set_size(this._iconSize);
+	}
+}
+
 function addColours() {
 	injections.WINDOW_PREVIEW_SIZE = AltTab.WINDOW_PREVIEW_SIZE;
 	AltTab.WINDOW_PREVIEW_SIZE = 256;
 
-	if (AltTab.baseIconSizes) {
-		let newSize = AltTab.baseIconSizes[0] + AltTab.baseIconSizes[AltTab.baseIconSizes.length - 1];
-		injections.baseIconSizes = AltTab.baseIconSizes.slice();
-		AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, newSize);
-	}
+	injections._setIconSize = AltTab.AppSwitcher.prototype._setIconSize;
+	AltTab.AppSwitcher.prototype._setIconSize = _setIconSize;
 
 	injections.highlight = AltTab.AppSwitcher.prototype.highlight;
 	AltTab.AppSwitcher.prototype.highlight = highlight;
@@ -204,9 +211,7 @@ function addColours() {
 function removeColours() {
 	AltTab.WINDOW_PREVIEW_SIZE = injections.WINDOW_PREVIEW_SIZE;
 
-	if (injections.baseIconSizes) {
-		AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, ...injections.baseIconSizes);
-	}
+	AltTab.AppSwitcher.prototype._setIconSize = injections._setIconSize;
 
 	AltTab.AppSwitcher.prototype.highlight = injections.highlight;
 
