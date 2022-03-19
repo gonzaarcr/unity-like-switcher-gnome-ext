@@ -178,9 +178,11 @@ function addColours() {
 	injections.WINDOW_PREVIEW_SIZE = AltTab.WINDOW_PREVIEW_SIZE;
 	AltTab.WINDOW_PREVIEW_SIZE = 256;
 
-	let newSize = AltTab.baseIconSizes[0] + AltTab.baseIconSizes[AltTab.baseIconSizes.length - 1];
-	injections.baseIconSizes = AltTab.baseIconSizes.slice();
-	AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, newSize);
+	if (AltTab.baseIconSizes) {
+		let newSize = AltTab.baseIconSizes[0] + AltTab.baseIconSizes[AltTab.baseIconSizes.length - 1];
+		injections.baseIconSizes = AltTab.baseIconSizes.slice();
+		AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, newSize);
+	}
 
 	injections.highlight = AltTab.AppSwitcher.prototype.highlight;
 	AltTab.AppSwitcher.prototype.highlight = highlight;
@@ -202,7 +204,9 @@ function addColours() {
 function removeColours() {
 	AltTab.WINDOW_PREVIEW_SIZE = injections.WINDOW_PREVIEW_SIZE;
 
-	AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, ...injections.baseIconSizes);
+	if (injections.baseIconSizes) {
+		AltTab.baseIconSizes.splice(0, AltTab.baseIconSizes.length, ...injections.baseIconSizes);
+	}
 
 	AltTab.AppSwitcher.prototype.highlight = injections.highlight;
 
