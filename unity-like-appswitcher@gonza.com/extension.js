@@ -7,7 +7,6 @@ const SwitcherPopup = imports.ui.switcherPopup;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 
-const Settings = Me.imports.settings.UnityAppSwitcherSettings;
 const Utils = Me.imports.utils;
 
 
@@ -287,7 +286,7 @@ function init(metadata) {
 }
 
 function enable() {
-	let settings = new Settings(Me.metadata['settings-schema']);
+	const settings = ExtensionUtils.getSettings(Me.metadata['settings-schema']);
 	extension = new Extension(settings);
 
 	addColours();
