@@ -4,7 +4,7 @@ const Gtk = imports.gi.Gtk;
 const Config = imports.misc.config;
 
 const Me = imports.misc.extensionUtils.getCurrentExtension();
-const Settings = Me.imports.settings.UnityAppSwitcherSettings;
+const ExtensionUtils = imports.misc.extensionUtils;
 
 const SHELL_VERSION = Config.PACKAGE_VERSION;
 
@@ -69,8 +69,8 @@ function init() {
 }
 
 function buildPrefsWidget() {
-	let settings = new Settings(Me.metadata['settings-schema']);
-	let widget = new PrefsWidget(settings);
+	const settings = ExtensionUtils.getSettings(Me.metadata['settings-schema']);
+	const widget = new PrefsWidget(settings);
 	widget.show_all();
 
 	return widget;
