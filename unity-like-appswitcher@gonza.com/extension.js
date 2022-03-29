@@ -174,7 +174,7 @@ function _scroll(index) {
 }
 
 function _setIconSize() {
-	this._iconSize = 96;
+	this._iconSize = 96 * 1.5;
 
 	for (let i = 0; i < this.icons.length; i++) {
 		if (this.icons[i].icon != null)
