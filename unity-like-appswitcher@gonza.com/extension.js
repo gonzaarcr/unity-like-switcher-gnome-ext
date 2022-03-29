@@ -228,11 +228,15 @@ function removeColours() {
 }
 
 function setInitialSelection(argument) {
-	injections._finish = AltTab.AppSwitcherPopup.prototype._finish;
-	AltTab.AppSwitcherPopup.prototype._finish = _finish;
+	if (!injections._finish) {		
+		injections._finish = AltTab.AppSwitcherPopup.prototype._finish;
+		AltTab.AppSwitcherPopup.prototype._finish = _finish;
+	}
 
-	injections._initialSelection = AltTab.AppSwitcherPopup.prototype._initialSelection;
-	AltTab.AppSwitcherPopup.prototype._initialSelection = _initialSelection;
+	if (!injections._initialSelection) {		
+		injections._initialSelection = AltTab.AppSwitcherPopup.prototype._initialSelection;
+		AltTab.AppSwitcherPopup.prototype._initialSelection = _initialSelection;
+	}
 }
 
 function resetInitialSelection(argument) {
