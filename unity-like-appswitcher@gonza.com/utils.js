@@ -1,9 +1,7 @@
-
-const GdkPixbuf = imports.gi.GdkPixbuf;
-const Gio = imports.gi.Gio;
-const Gtk = imports.gi.Gtk;
-const St = imports.gi.St;
-
+import GdkPixbuf from "gi://GdkPixbuf";
+import Gio from "gi://Gio";
+import Gtk from "gi://Gtk";
+import St from "gi://St";
 
 // We need an icons theme object, this is the only way I managed to get
 // pixel buffers that can be used for calculating the backlight color
@@ -20,10 +18,9 @@ const  BATCH_SIZE_TO_DELETE = 50;
 // The icon size used to extract the dominant color
 const DOMINANT_COLOR_ICON_SIZE = 64;
 
-// Compute dominant color frim the app icon.
+// Compute dominant color from the app icon.
 // The color is cached for efficiency.
-var DominantColorExtractor = class DashToDock_DominantColorExtractor {
-
+export class DominantColorExtractor {
 	constructor(app) {
 		this._app = app;
 	}
@@ -33,38 +30,39 @@ var DominantColorExtractor = class DashToDock_DominantColorExtractor {
 	 */
 	_getIconPixBuf() {
 		let iconTexture = this._app.create_icon_texture(16);
-
-		if (themeLoader === null) {
-			let ifaceSettings = new Gio.Settings({ schema: "org.gnome.desktop.interface" });
-
-			themeLoader = new Gtk.IconTheme(),
-			themeLoader.set_custom_theme(ifaceSettings.get_string('icon-theme')); // Make sure the correct theme is loaded
-		}
+		const themeLoader = new St.IconTheme();
 
 		// Unable to load the icon texture, use fallback
-		if (iconTexture instanceof St.Icon === false) {
+		if (iconTexture instanceof St.Icon === false)
 			return null;
-		}
+
 
 		iconTexture = iconTexture.get_gicon();
 
 		// Unable to load the icon texture, use fallback
-		if (iconTexture === null) {
+		if (!iconTexture)
 			return null;
-		}
 
 		if (iconTexture instanceof Gio.FileIcon) {
 			// Use GdkPixBuf to load the pixel buffer from the provided file path
 			return GdkPixbuf.Pixbuf.new_from_file(iconTexture.get_file().get_path());
+		} else if (iconTexture instanceof Gio.ThemedIcon) {
+			// Get the first pixel buffer available in the icon theme
+			const iconNames = iconTexture.get_names();
+			const iconInfo = themeLoader.choose_icon(iconNames, DOMINANT_COLOR_ICON_SIZE, 0);
+
+			if (iconInfo)
+				return iconInfo.load_icon();
+			else
+				return null;
 		}
 
-		// Get the pixel buffer from the icon theme
-		if (!iconTexture.get_names) return;
-		let icon_info = themeLoader.lookup_icon(iconTexture.get_names()[0], DOMINANT_COLOR_ICON_SIZE, 0);
-		if (icon_info !== null)
-			return icon_info.load_icon();
-		else
-			return null;
+		// Use GdkPixBuf to load the pixel buffer from memory
+		// iconTexture.load is available unless iconTexture is not an instance of Gio.LoadableIcon
+		// this means that iconTexture is an instance of Gio.EmblemedIcon,
+		// which may be converted to a normal icon via iconTexture.get_icon?
+		const [iconBuffer] = iconTexture.load(DOMINANT_COLOR_ICON_SIZE, null);
+		return GdkPixbuf.Pixbuf.new_from_stream(iconBuffer, null);
 	}
 
 	/**
@@ -79,51 +77,50 @@ var DominantColorExtractor = class DashToDock_DominantColorExtractor {
 			return iconCacheMap.get(this._app.get_id());
 		}
 
-		let pixBuf = this._getIconPixBuf();
-		if (pixBuf == null)
+		const pixBuf = this._getIconPixBuf();
+		if (!pixBuf)
 			return null;
 
-		let pixels = pixBuf.get_pixels(),
-			offset = 0;
+		let pixels = pixBuf.get_pixels();
 
 		let total  = 0,
 			rTotal = 0,
 			gTotal = 0,
 			bTotal = 0;
 
-		let resample_y = 1,
-			resample_x = 1;
+		let resampleX = 1;
+		let resampleY = 1;
 
 		// Resampling of large icons
 		// We resample icons larger than twice the desired size, as the resampling
 		// to a size s
 		// DOMINANT_COLOR_ICON_SIZE < s < 2*DOMINANT_COLOR_ICON_SIZE,
-		// most of the case exactly DOMINANT_COLOR_ICON_SIZE as the icon size is tipycally
-		// a multiple of it.
-		let width = pixBuf.get_width();
-		let height = pixBuf.get_height();
+		// most of the case exactly DOMINANT_COLOR_ICON_SIZE as the icon size is
+		// typically a multiple of it.
+		const width = pixBuf.get_width();
+		const height = pixBuf.get_height();
 
 		// Resample
-		if (height >= 2* DOMINANT_COLOR_ICON_SIZE)
-			resample_y = Math.floor(height/DOMINANT_COLOR_ICON_SIZE);
+		if (height >= 2 * DOMINANT_COLOR_ICON_SIZE)
+			resampleY = Math.floor(height / DOMINANT_COLOR_ICON_SIZE);
 
-		if (width >= 2* DOMINANT_COLOR_ICON_SIZE)
-			resample_x = Math.floor(width/DOMINANT_COLOR_ICON_SIZE);
+		if (width >= 2 * DOMINANT_COLOR_ICON_SIZE)
+			resampleX = Math.floor(width / DOMINANT_COLOR_ICON_SIZE);
 
-		if (resample_x !==1 || resample_y !== 1)
-			pixels = this._resamplePixels(pixels, resample_x, resample_y);
+		if (resampleX !== 1 || resampleY !== 1)
+			pixels = this._resamplePixels(pixels, resampleX, resampleY);
 
 		// computing the limit outside the for (where it would be repeated at each iteration)
 		// for performance reasons
-		let limit = pixels.length;
-		for (let offset = 0; offset < limit; offset+=4) {
-			let r = pixels[offset],
+		const limit = pixels.length;
+		for (let offset = 0; offset < limit; offset += 4) {
+			const r = pixels[offset],
 				g = pixels[offset + 1],
 				b = pixels[offset + 2],
 				a = pixels[offset + 3];
 
-			let saturation = (Math.max(r,g, b) - Math.min(r,g, b));
-			let relevance  = 0.1 * 255 * 255 + 0.9 * a * saturation;
+			const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+			const relevance  = 0.1 * 255 * 255 + 0.9 * a * saturation;
 
 			rTotal += r * relevance;
 			gTotal += g * relevance;
@@ -132,31 +129,31 @@ var DominantColorExtractor = class DashToDock_DominantColorExtractor {
 			total += relevance;
 		}
 
-		total = total * 255;
+		total *= 255;
 
-		let r = rTotal / total,
+		const r = rTotal / total,
 			g = gTotal / total,
 			b = bTotal / total;
 
-		let hsv = ColorUtils.RGBtoHSV(r * 255, g * 255, b * 255);
+		const hsv = ColorUtils.RGBtoHSV(r * 255, g * 255, b * 255);
 
 		if (hsv.s > 0.15)
 			hsv.s = 0.65;
 		hsv.v = 0.90;
 
-		let rgb = ColorUtils.HSVtoRGB(hsv.h, hsv.s, hsv.v);
+		const rgb = ColorUtils.HSVtoRGB(hsv.h, hsv.s, hsv.v);
 
 		// Cache the result.
-		let backgroundColor = {
+		const backgroundColor = {
 			lighter:  ColorUtils.ColorLuminance(rgb.r, rgb.g, rgb.b, 0.2),
 			original: ColorUtils.ColorLuminance(rgb.r, rgb.g, rgb.b, 0),
-			darker:   ColorUtils.ColorLuminance(rgb.r, rgb.g, rgb.b, -0.5)
+			darker:   ColorUtils.ColorLuminance(rgb.r, rgb.g, rgb.b, -0.5),
 		};
 
 		if (iconCacheMap.size >= MAX_CACHED_ITEMS) {
-			//delete oldest cached values (which are in order of insertions)
+			// delete oldest cached values (which are in order of insertions)
 			let ctr = 0;
-			for (let key of iconCacheMap.keys()) {
+			for (const key of iconCacheMap.keys()) {
 				if (++ctr > BATCH_SIZE_TO_DELETE)
 					break;
 				iconCacheMap.delete(key);
@@ -169,7 +166,7 @@ var DominantColorExtractor = class DashToDock_DominantColorExtractor {
 	}
 
 	/**
-	 * Downsample large icons before scanning for the backlight color to
+	 * Downscale large icons before scanning for the backlight color to
 	 * improve performance.
 	 *
 	 * @param pixBuf
@@ -177,15 +174,15 @@ var DominantColorExtractor = class DashToDock_DominantColorExtractor {
 	 * @param resampleX
 	 * @param resampleY
 	 *
-	 * @return [];
+	 * @returns [];
 	 */
-	_resamplePixels (pixels, resampleX, resampleY) {
-		let resampledPixels = [];
+	_resamplePixels(pixels, resampleX, resampleY) {
+		const resampledPixels = [];
 		// computing the limit outside the for (where it would be repeated at each iteration)
 		// for performance reasons
-		let limit = pixels.length / (resampleX * resampleY) / 4;
+		const limit = pixels.length / (resampleX * resampleY) / 4;
 		for (let i = 0; i < limit; i++) {
-			let pixel = i * resampleX * resampleY;
+			const pixel = i * resampleX * resampleY;
 
 			resampledPixels.push(pixels[pixel * 4]);
 			resampledPixels.push(pixels[pixel * 4 + 1]);
@@ -195,13 +192,13 @@ var DominantColorExtractor = class DashToDock_DominantColorExtractor {
 
 		return resampledPixels;
 	}
-};
+}
 
 
 /**
  * Color manipulation utilities
   */
-var ColorUtils = class DashToDock_ColorUtils {
+export class ColorUtils {
 
 	// Darken or brigthen color by a fraction dlum
 	// Each rgb value is modified by the same fraction.
