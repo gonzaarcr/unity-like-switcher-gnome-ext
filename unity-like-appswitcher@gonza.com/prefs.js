@@ -1,30 +1,22 @@
-const GObject = imports.gi.GObject;
-const Gio = imports.gi.Gio;
-const Gtk = imports.gi.Gtk;
-const Config = imports.misc.config;
+import Adw from 'gi://Adw';
+import GObject from "gi://GObject";
+import Gio from "gi://Gio";
+import Gtk from "gi://Gtk";
 
-const Me = imports.misc.extensionUtils.getCurrentExtension();
-const ExtensionUtils = imports.misc.extensionUtils;
+import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-const SHELL_VERSION = Config.PACKAGE_VERSION;
 
-const PrefsWidget = GObject.registerClass(
-class PrefsWidget extends Gtk.Box {	
+class PrefsWidget {	
 
-	_init(settings, params) {
-		super._init(params);
-
+	constructor(schema) {
 		this._buildable = new Gtk.Builder();
-		this._buildable.add_from_file(Me.path + '/settings.ui');
+		this._buildable.add_from_file(
+			Gio.File.new_for_uri(import.meta.url).get_parent().get_path() + '/settings.ui'
+		);
 
 		let prefsWidget = this._getWidget('prefs_widget');
-		if (SHELL_VERSION < '40') {
-			this.add(prefsWidget);
-		} else {
-			this.append(prefsWidget);
-		}
 
-		this._settings = settings;
+		this._settings = schema;
 		this._bindBooleans();
 
 		this._settings.connect(
@@ -34,11 +26,6 @@ class PrefsWidget extends Gtk.Box {
 		this._firstChangeWindowChanged();
 	}
 
-	show_all() {
-		if (SHELL_VERSION < '40')
-			super.show_all();
-	}
-
 	_getWidget(name) {
 		let wname = name.replace(/-/g, '_');
 		return this._buildable.get_object(wname);
@@ -46,7 +33,7 @@ class PrefsWidget extends Gtk.Box {
 
 	_getBooleans() {
 		return [
-		  'first-change-window'
+			'first-change-window'
 		];
 	}
 
@@ -62,16 +49,12 @@ class PrefsWidget extends Gtk.Box {
 	_firstChangeWindowChanged() {
 		this._settings.get_boolean('first-change-window');
 	}
-});
-
-function init() {
-
 }
 
-function buildPrefsWidget() {
-	const settings = ExtensionUtils.getSettings(Me.metadata['settings-schema']);
-	const widget = new PrefsWidget(settings);
-	widget.show_all();
-
-	return widget;
+export default class UnityLikeAppSwitcherPreferences extends ExtensionPreferences {
+	fillPreferencesWindow (window) {
+		window._settings = this.getSettings();
+		const widget = new PrefsWidget(window._settings);
+		window.add(widget._getWidget('prefs_widget'));
+	}
 }
